@@ -1,0 +1,178 @@
+<html>
+  <head>
+    <title>Etherscan x inb0x: a test</title>
+
+    <script
+    src="https://code.jquery.com/jquery-3.2.1.min.js"
+    integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
+    crossorigin="anonymous">
+    </script>
+
+    <style>
+      *{
+        margin: 0;
+        padding: 0;
+      }
+
+      body{
+        font-family: Helvetica;
+        background-color: #F1F1F2;
+        color: #5C5C5C;
+      }
+
+      button{
+        padding: 4px;
+      }
+
+
+      h1{
+        margin-top: 20px;
+        margin-bottom: 5px;
+        text-align: center;
+        color: #022B43;
+      }
+
+      .center{
+        margin: 0 auto;
+        text-align: center;
+      }
+
+      .table{
+        display: flex;
+        flex-direction: column;
+        margin: 100px auto;
+        width: 80%;
+        border: 2px solid #D4D6D7;
+        border-radius: 4px;
+        padding: 4px;
+        background-color: #FFFFFF;
+      }
+
+      .row{
+        display: flex;
+        width: 100%;
+        justify-content: space-between;
+        align-items: center;
+        margin: 5px 0;
+      }
+
+      .bold{
+        font-weight: 700;
+      }
+
+    </style>
+
+  </head>
+  <body>
+
+    <h1>inb0x x etherscan</h1>
+
+    <div class="center">
+      <label for="search">ERC20 Token Address</label>
+      <input type="text" class="js-erc20">
+      <button type="button" name="button" class="js-submit-search">submit</button>
+    </div>
+
+    <div class="table js-table">
+      <div class="row bold">
+        <p>Rank</p>
+        <p>Address</p>
+        <p>Quantity</p>
+      </div>
+
+    </div>
+
+    <script>
+
+    var input = $('.js-erc20');
+    $('.js-submit-search').on('click', function(){
+      var addr = input.val();
+      var url_  = "https://api.etherscan.io/api?module=logs&action=getLogs&"+
+                 "fromBlock=0&toBlock=latest&"+
+                 "address="+addr
+                 +"&topic0=0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef&apikey=YourApiKeyToken";
+
+      $.ajax({
+        url: url_,
+        success: function(result){
+          var d = {}
+          var txs = result.result;
+
+          txs.forEach(function(tx){
+            var topics = tx.topics;
+            var tth    = topics[0];
+            var from   = removePadding(topics[1]);
+            var to     = removePadding(topics[2]);
+            var data   = tx.data;
+
+            parseTx(d,to,from,data);
+            sorted = Object.keys(d).sort(function(a,b){return d[b]-d[a]})
+          });
+
+        updateTable(sorted,d);
+        }
+      });
+
+    })
+
+
+    function removePadding(s){
+      return s.substring(0,2) + s.substring(26,66);
+    }
+
+    function hexToDec(s){
+      return parseInt(s,16);
+    }
+
+    function removeDecimal(s,d){
+      return s/(Math.pow(10,d))
+    }
+
+    function parseTx(d,t,f,data){
+      // this really depends on amount of decimals....is this in the contract somewhere?
+      var amt = removeDecimal(hexToDec(data),18);
+
+      if(!(t in d)){
+        if(!(f in d)){
+          d[t] = amt;
+          d[f] = -amt; // would this ever happen? who starts with supply? Comes from contract address?
+        }
+        else{
+          d[t] = amt;
+          d[f] -= amt;
+        }
+      }
+      else{
+        if(!(f in d)){
+          d[t] += amt;
+          d[f] = -amt;
+        }
+        else{
+          d[t] += amt;
+          d[f] -= amt;
+        }
+      }
+    }
+
+    function updateTable(sorted,d){
+      var table = $('.js-table');
+
+      table.empty();
+      table.append("<div class='row bold'><p>Rank</p><p>Address</p><p>Quantity</p></div>");
+
+      // clear children first
+      for(var tx in sorted) {
+        // this is where react/vue would be great........
+        table.append(
+          "<div class='row'>"+
+                "<p>"+tx+"</p>"+
+                "<p>"+sorted[tx]+"</p>"+
+                "<p>"+parseInt(d[sorted[tx]])+"</p>"+
+          "</div>");
+      }
+    }
+
+
+    </script>
+  </body>
+</html>
